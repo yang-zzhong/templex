@@ -8,6 +8,7 @@ package templex
 import (
 	"io"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,15 +32,17 @@ func exec(stmt Statement, context map[string]any, w io.Writer) (err error) {
 		return
 	case StmtRenderVar:
 		key := strings.ReplaceAll(strings.ReplaceAll(string(stmt.Value), "}}", ""), "{{", "")
-		val, found := searchValue(reflect.ValueOf(context), strings.Trim(key, " "))
+		val, found := searchValue(reflect.ValueOf(context), strings.TrimSpace(key))
 		if !found {
 			return
 		}
 		_, err = w.Write([]byte(cast.ToString(val.Interface())))
 		return
 	case StmtFor:
-		key := strings.ReplaceAll(strings.ReplaceAll(string(stmt.Value), "{{#for", ""), "}}", "")
-		val, found := searchValue(reflect.ValueOf(context), strings.Trim(key, " "))
+		key := strings.ReplaceAll(strings.ReplaceAll(string(stmt.Value), "{{", ""), "}}", "")
+		reg := regexp.MustCompile(`#[Ff][Oo][Rr]`)
+		keyb := reg.ReplaceAll([]byte(strings.TrimSpace(key)), []byte{})
+		val, found := searchValue(reflect.ValueOf(context), strings.TrimSpace(string(keyb)))
 		if !found {
 			return
 		}

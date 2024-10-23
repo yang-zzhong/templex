@@ -24,6 +24,7 @@ const (
 	stateVarMaybe
 	stateVarBegin
 	stateVar
+	stateVarMaybeEnd
 	stateVarEndBegin
 	stateLoopBegin
 	stateLoopF
@@ -32,6 +33,7 @@ const (
 	stateLoopE
 	stateLoopEn
 	stateLoopEnd
+	stateLoopMaybeEnd
 	stateLoopEndBegin
 	stateLoopSeekVar
 	stateLoopVarBegin
@@ -65,7 +67,7 @@ func Lex(r io.Reader) ([]Token, error) {
 //	{{.item.include_inst_kind}}: {{.item.schedule_inst_count}}个, 成功{{.item.success_count}}个,失败{{.item.failed_count}}个，取消{{.item.cancel_count}}
 //
 // {{#end}}
-
+//
 // ['调度在', {{.tasks.first.started_at}},',', {{}.tasks.last_ended_at}]
 
 type tokenlexer struct {
@@ -110,6 +112,8 @@ func (p *tokenlexer) Token(r io.Reader, token *Token) (err error, end bool) {
 			p.handleVarBegin(bs[0])
 		case stateVar:
 			p.handleVar(bs[0])
+		case stateVarMaybeEnd:
+			p.handleVarMaybeEnd(bs[0])
 		case stateVarEndBegin:
 			tokens, get := p.handleVarEndBegin(bs[0])
 			if !get {
@@ -132,6 +136,8 @@ func (p *tokenlexer) Token(r io.Reader, token *Token) (err error, end bool) {
 			p.handleLoop(bs[0], 'd', stateLoopEnd)
 		case stateLoopEnd:
 			p.handleLoopEnd(bs[0])
+		case stateLoopMaybeEnd:
+			p.handleLoopMaybeEnd(bs[0])
 		case stateLoopEndBegin:
 			tokens, get := p.handleLoopEndBegin(bs[0])
 			if !get {
@@ -263,6 +269,11 @@ func (p *tokenlexer) handleLoopVar(b byte) {
 		p.maybe = append(p.maybe, b)
 		return
 	}
+	if p.isWhitespace(b) {
+		p.state = stateLoopMaybeEnd
+		p.maybe = append(p.maybe, b)
+		return
+	}
 	if b == '}' {
 		p.state = stateLoopVarEnd
 		p.maybe = append(p.maybe, b)
@@ -312,10 +323,14 @@ func (p *tokenlexer) handleVarStart(b byte) {
 		p.maybe = append(p.maybe, b)
 		return
 	}
-	p.stash = append(p.stash, b)
+	p.resetToConst(b)
 }
 
 func (p *tokenlexer) handleVarMaybe(b byte) {
+	if p.isWhitespace(b) {
+		p.maybe = append(p.maybe, b)
+		return
+	}
 	switch b {
 	case '.':
 		p.maybe = append(p.maybe, '.')
@@ -341,11 +356,38 @@ func (p *tokenlexer) handleVar(b byte) {
 	if b == '.' {
 		p.maybe = append(p.maybe, b)
 		p.state = stateVarBegin
+	} else if p.isWhitespace(b) {
+		p.maybe = append(p.maybe, b)
+		p.state = stateVarMaybeEnd
 	} else if b == '}' {
 		p.maybe = append(p.maybe, b)
 		p.state = stateVarEndBegin
 	} else if b >= 'a' && b <= 'z' || b >= 'A' || b <= 'Z' || b >= '0' && b <= '9' || b == '_' {
 		p.maybe = append(p.maybe, b)
+	} else {
+		p.resetToConst(b)
+	}
+}
+
+func (p *tokenlexer) handleVarMaybeEnd(b byte) {
+	if p.isWhitespace(b) {
+		p.maybe = append(p.maybe, b)
+		return
+	} else if b == '}' {
+		p.maybe = append(p.maybe, b)
+		p.state = stateVarEndBegin
+	} else {
+		p.resetToConst(b)
+	}
+}
+
+func (p *tokenlexer) handleLoopMaybeEnd(b byte) {
+	if p.isWhitespace(b) {
+		p.maybe = append(p.maybe, b)
+		return
+	} else if b == '}' {
+		p.maybe = append(p.maybe, b)
+		p.state = stateLoopVarEnd
 	} else {
 		p.resetToConst(b)
 	}
@@ -371,5 +413,5 @@ func (p *tokenlexer) handleVarEndBegin(b byte) ([]Token, bool) {
 }
 
 func (p *tokenlexer) isWhitespace(b byte) bool {
-	return b == ' '
+	return b == ' ' || b == '\t' || b == '\n' || b == '\v' || b == '\f' || b == '\r'
 }

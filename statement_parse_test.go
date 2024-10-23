@@ -30,7 +30,7 @@ func stmtEqual(stmt1, stmt2 templex.Statement) bool {
 	return true
 }
 
-func TestParseStaement(t *testing.T) {
+func TestParseStatement(t *testing.T) {
 	input := []templex.Token{
 		{Type: templex.TokenLoopBegin, Raw: []byte("{{#for .tasks}}")},
 		{Type: templex.TokenConst, Raw: []byte("调度在")},
