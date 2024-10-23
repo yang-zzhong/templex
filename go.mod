@@ -1,6 +1,6 @@
 module github.com/yang-zzhong/templex
 
-go 1.22.5
+go 1.20
 
 require (
 	github.com/nao1215/nameconv v1.0.1
