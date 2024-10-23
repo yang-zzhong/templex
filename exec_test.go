@@ -7,10 +7,30 @@ package templex_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/yang-zzhong/templex"
 )
+
+func TestRender(t *testing.T) {
+	input := strings.NewReader(`{{#for .tasks}}调度在{{.__value__.started_at}}开始{{#end}}`)
+	context := map[string]any{
+		"tasks": []map[string]any{{
+			"started_at": 1001001,
+		}, {
+			"started_at": 1001002,
+		}},
+	}
+	var buf bytes.Buffer
+	if err := templex.Render(input, context, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if buf.String() != "调度在1001001开始调度在1001002开始" {
+		t.Fatal("exec failed")
+	}
+	t.Log(buf.String())
+}
 
 func TestExec(t *testing.T) {
 	input := []templex.Statement{{

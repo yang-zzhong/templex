@@ -16,6 +16,18 @@ import (
 	"github.com/spf13/cast"
 )
 
+func Render(r io.Reader, context map[string]any, w io.Writer) error {
+	tokens, err := Lex(r)
+	if err != nil {
+		return err
+	}
+	stmt, err := Parse(tokens)
+	if err != nil {
+		return err
+	}
+	return Exec(stmt, context, w)
+}
+
 func Exec(stmt []Statement, context map[string]any, w io.Writer) (err error) {
 	for _, stmt := range stmt {
 		if err = exec(stmt, context, w); err != nil {
